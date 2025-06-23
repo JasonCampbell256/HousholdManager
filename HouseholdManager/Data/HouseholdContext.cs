@@ -19,12 +19,7 @@ namespace HouseholdManager.Data
         public DbSet<Chore> Chores { get; set; }
         public DbSet<MaintenanceTask> MaintenanceTasks { get; set; }
         public DbSet<Note> Notes { get; set; }
-        public DbSet<GroceryList> GroceryLists { get; set; }
-        public DbSet<GroceryItem> GroceryItems { get; set; }
-        public DbSet<Expense> Expenses { get; set; }
         public DbSet<Document> Documents { get; set; }
-        public DbSet<Pet> Pets { get; set; }
-        public DbSet<PetCareTask> PetCareTasks { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -91,30 +86,6 @@ namespace HouseholdManager.Data
                 .HasForeignKey(n => n.HouseholdId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<GroceryList>()
-                .HasOne(gl => gl.Household)
-                .WithMany(h => h.GroceryLists)
-                .HasForeignKey(gl => gl.HouseholdId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<Expense>()
-                .HasOne(e => e.Household)
-                .WithMany(h => h.Expenses)
-                .HasForeignKey(e => e.HouseholdId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<Document>()
-                .HasOne(d => d.Household)
-                .WithMany(h => h.Documents)
-                .HasForeignKey(d => d.HouseholdId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<Pet>()
-                .HasOne(p => p.Household)
-                .WithMany(h => h.Pets)
-                .HasForeignKey(p => p.HouseholdId)
-                .OnDelete(DeleteBehavior.Cascade);
-
             // MealPlan relationships
             modelBuilder.Entity<MealPlanEntry>()
                 .HasOne(mpe => mpe.MealPlan)
@@ -134,26 +105,6 @@ namespace HouseholdManager.Data
                 .WithMany(fm => fm.AssignedChores)
                 .HasForeignKey(c => c.AssignedToId)
                 .OnDelete(DeleteBehavior.SetNull);
-
-            // Grocery list relationships
-            modelBuilder.Entity<GroceryItem>()
-                .HasOne(gi => gi.GroceryList)
-                .WithMany(gl => gl.Items)
-                .HasForeignKey(gi => gi.GroceryListId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<GroceryList>()
-                .HasOne(gl => gl.AssociatedMeal)
-                .WithMany()
-                .HasForeignKey(gl => gl.AssociatedMealId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            // Pet care relationships
-            modelBuilder.Entity<PetCareTask>()
-                .HasOne(pct => pct.Pet)
-                .WithMany(p => p.CareTasks)
-                .HasForeignKey(pct => pct.PetId)
-                .OnDelete(DeleteBehavior.Cascade);
 
             // Note creator relationship
             modelBuilder.Entity<Note>()

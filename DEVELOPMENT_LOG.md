@@ -77,8 +77,7 @@ Enhanced domain models with complete meal planning system:
 - **MealPlanEntry** - Individual meal assignments with date/time/meal references
 - Meal (with ingredients and planning integration)
 - FamilyMember, Chore, MaintenanceTask
-- Note, GroceryList/Item, Expense, Document
-- Pet, PetCareTask
+- Note, Document
 
 ### ✅ **Services Layer**
 - [x] HouseholdService - Core household operations
@@ -101,13 +100,9 @@ Enhanced domain models with complete meal planning system:
 - [ ] **Ingredients Management Page** - Dedicated ingredient library interface
 - [ ] **Chores Page** - Exists but needs backend integration
 - [ ] **Maintenance Tasks** - Create component
-- [ ] **Grocery Lists** - Create component (can now leverage meal plans)
-- [ ] **Expenses** - Create component  
-- [ ] **Pets** - Create component
 - [ ] **Documents** - Create component
 
 ### 🔄 **Advanced Features Enabled by Meal Planning**
-- [ ] **Shopping List Generation** - Auto-generate from weekly meal plans
 - [ ] **Ingredient Aggregation** - Sum ingredients across planned meals
 - [ ] **Meal Plan Templates** - Save and reuse common weekly patterns
 - [ ] **Recipe Scaling** - Adjust quantities for serving sizes
@@ -348,10 +343,9 @@ public async Task<MealPlan> CreateOrGetMealPlanAsync(int householdId, DateTime w
 ## 📋 Next Development Priorities
 
 ### **High Priority**
-1. **Shopping List Generation** - Auto-generate grocery lists from meal plans
-2. **Ingredient Aggregation** - Sum ingredients across week's planned meals
-3. **Mobile Optimization** - Responsive meal planning interface for phones
-4. **Meal Plan Templates** - Save and reuse common weekly patterns
+1. **Ingredient Aggregation** - Sum ingredients across week's planned meals
+2. **Mobile Optimization** - Responsive meal planning interface for phones
+3. **Meal Plan Templates** - Save and reuse common weekly patterns
 
 ### **Medium Priority**
 1. **Bulk Operations** - Copy meals between weeks, duplicate plans

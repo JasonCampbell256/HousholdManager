@@ -9,10 +9,7 @@ A local-only household management application written in C# using Entity Framewo
 - **Chore Management**: Define chores with frequency (daily, weekly, monthly, as-needed) and assign to family members.
 - **Maintenance Tracking**: Track home maintenance tasks with automatic due date calculation.
 - **Shared Notes**: Family members can create and read general-purpose notes.
-- **Grocery Lists**: Create named grocery lists with items, quantities, categories, and checkboxes.
-- **Expense Tracking**: Log expenses with amount, date, category, and description.
-- **Document Management**: Track files related to home or appliance maintenance.
-- **Pet Management**: Track pets and their care tasks.
+- **Document Management**: Store important household documents and information.
 
 ## Domain Model
 
@@ -26,12 +23,7 @@ The system is built around a `Household` entity that contains all relevant data 
 - **Chore**: Household tasks with frequency and assignments
 - **MaintenanceTask**: Home maintenance with automatic scheduling
 - **Note**: Shared family notes
-- **GroceryList**: Shopping lists with items
-- **GroceryItem**: Individual items in grocery lists
-- **Expense**: Financial tracking
 - **Document**: File references for household documents
-- **Pet**: Pet information
-- **PetCareTask**: Pet care activities
 
 ## Technology Stack
 
@@ -56,7 +48,7 @@ HouseholdManager/
 1. **Prerequisites**: .NET 9.0 SDK
 2. **Clone and Build**:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/JasonCampbell256/HousholdManager
    cd HouseholdManager
    dotnet build
    ```
@@ -91,7 +83,6 @@ The application demonstrates creating:
 - Meals with ingredients and tags
 - Chores assigned to family members
 - Maintenance tasks with automatic scheduling
-- Expenses with categories
 - Shared family notes
 
 ## Future Enhancements

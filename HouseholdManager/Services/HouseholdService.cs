@@ -41,8 +41,6 @@ namespace HouseholdManager.Services
                 .Include(h => h.Chores)
                 .Include(h => h.MaintenanceTasks)
                 .Include(h => h.Notes)
-                .Include(h => h.Expenses)
-                .Include(h => h.Pets)
                 .FirstOrDefaultAsync(h => h.Id == id);
         }
     }
