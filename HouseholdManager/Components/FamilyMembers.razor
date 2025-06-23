@@ -1,0 +1,260 @@
+@page "/family-members"
+@using HouseholdManager.Services
+@using HouseholdManager.Models
+@using HouseholdManager.Data
+@inject HouseholdService HouseholdService
+@inject HouseholdContext Context
+
+<PageTitle>Family Members - Household Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>Family Members</h2>
+                <button class="btn btn-primary" @onclick="ShowAddForm">
+                    <span class="oi oi-plus" aria-hidden="true"></span> Add Member
+                </button>
+            </div>
+
+            @if (showAddForm)
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Add New Family Member</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="memberName" class="form-label">Name *</label>
+                                <input type="text" class="form-control" id="memberName" @bind="newMember.Name" placeholder="Enter member name" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="memberRole" class="form-label">Role</label>
+                                <select class="form-select" id="memberRole" @bind="newMember.Role">
+                                    <option value="">Select role...</option>
+                                    <option value="Parent">Parent</option>
+                                    <option value="Child">Child</option>
+                                    <option value="Guardian">Guardian</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="memberBirthdate" class="form-label">Date of Birth</label>
+                                <input type="date" class="form-control" id="memberBirthdate" @bind="newMember.DateOfBirth" />
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success" @onclick="AddMember">Save Member</button>
+                            <button class="btn btn-secondary" @onclick="CancelAdd">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (familyMembers.Any())
+            {
+                <div class="row">
+                    @foreach (var member in familyMembers)
+                    {
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">@member.Name</h5>
+                                    @if (!string.IsNullOrEmpty(member.Role))
+                                    {
+                                        <p class="card-text">
+                                            <span class="badge bg-primary">@member.Role</span>
+                                        </p>
+                                    }
+                                    @if (member.DateOfBirth.HasValue)
+                                    {
+                                        <p class="card-text">
+                                            <small class="text-muted">
+                                                Born: @member.DateOfBirth.Value.ToString("MMM dd, yyyy")
+                                                @{
+                                                    var age = DateTime.Now.Year - member.DateOfBirth.Value.Year;
+                                                    if (DateTime.Now.DayOfYear < member.DateOfBirth.Value.DayOfYear)
+                                                        age--;
+                                                }
+                                                (Age: @age)
+                                            </small>
+                                        </p>
+                                    }
+                                    
+                                    @{
+                                        var assignedChores = member.AssignedChores?.Count ?? 0;
+                                    }
+                                    @if (assignedChores > 0)
+                                    {
+                                        <p class="card-text">
+                                            <small class="text-muted">
+                                                Assigned chores: @assignedChores
+                                            </small>
+                                        </p>
+                                    }
+                                    
+                                    <div class="d-flex gap-2 mt-3">
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EditMember(member)">
+                                            Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteMember(member)">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    <h4>No family members yet</h4>
+                    <p>Add family members to assign chores and track household activities.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (showEditModal && editingMember != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Family Member</h5>
+                    <button type="button" class="btn-close" @onclick="CancelEdit"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editMemberName" class="form-label">Name *</label>
+                        <input type="text" class="form-control" id="editMemberName" @bind="editingMember.Name" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="editMemberRole" class="form-label">Role</label>
+                        <select class="form-select" id="editMemberRole" @bind="editingMember.Role">
+                            <option value="">Select role...</option>
+                            <option value="Parent">Parent</option>
+                            <option value="Child">Child</option>
+                            <option value="Guardian">Guardian</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editMemberBirthdate" class="form-label">Date of Birth</label>
+                        <input type="date" class="form-control" id="editMemberBirthdate" @bind="editingMember.DateOfBirth" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveEdit">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<FamilyMember> familyMembers = new();
+    private bool showAddForm = false;
+    private FamilyMember newMember = new();
+    private int currentHouseholdId;
+    
+    private bool showEditModal = false;
+    private FamilyMember? editingMember = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var households = await HouseholdService.GetAllHouseholdsAsync();
+        if (households.Any())
+        {
+            currentHouseholdId = households.First().Id;
+            familyMembers = await Context.FamilyMembers
+                .Where(fm => fm.HouseholdId == currentHouseholdId)
+                .Include(fm => fm.AssignedChores)
+                .ToListAsync();
+        }
+    }
+
+    private void ShowAddForm()
+    {
+        showAddForm = true;
+        newMember = new FamilyMember();
+    }
+
+    private void CancelAdd()
+    {
+        showAddForm = false;
+        newMember = new FamilyMember();
+    }
+
+    private async Task AddMember()
+    {
+        if (!string.IsNullOrWhiteSpace(newMember.Name) && currentHouseholdId > 0)
+        {
+            newMember.HouseholdId = currentHouseholdId;
+            Context.FamilyMembers.Add(newMember);
+            await Context.SaveChangesAsync();
+            
+            await LoadData();
+            showAddForm = false;
+            newMember = new FamilyMember();
+        }
+    }
+
+    private void EditMember(FamilyMember member)
+    {
+        editingMember = new FamilyMember
+        {
+            Id = member.Id,
+            Name = member.Name,
+            Role = member.Role,
+            DateOfBirth = member.DateOfBirth,
+            HouseholdId = member.HouseholdId
+        };
+        showEditModal = true;
+    }
+
+    private void CancelEdit()
+    {
+        showEditModal = false;
+        editingMember = null;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (editingMember != null && !string.IsNullOrWhiteSpace(editingMember.Name))
+        {
+            var existingMember = await Context.FamilyMembers.FindAsync(editingMember.Id);
+            if (existingMember != null)
+            {
+                existingMember.Name = editingMember.Name;
+                existingMember.Role = editingMember.Role;
+                existingMember.DateOfBirth = editingMember.DateOfBirth;
+                
+                await Context.SaveChangesAsync();
+                await LoadData();
+            }
+            
+            showEditModal = false;
+            editingMember = null;
+        }
+    }
+
+    private async Task DeleteMember(FamilyMember member)
+    {
+        Context.FamilyMembers.Remove(member);
+        await Context.SaveChangesAsync();
+        await LoadData();
+    }
+}

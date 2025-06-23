@@ -1,0 +1,467 @@
+@page "/meal-planner"
+@using HouseholdManager.Services
+@using HouseholdManager.Models
+@inject MealPlanService MealPlanService
+@inject MealService MealService
+@inject HouseholdService HouseholdService
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+                <h2 class="mb-0">Meal Planner</h2>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="LoadPreviousWeek">
+                        <span class="oi oi-chevron-left" aria-hidden="true"></span> <span class="d-none d-sm-inline">Previous</span>
+                    </button>
+                    <button class="btn btn-primary btn-sm" @onclick="LoadCurrentWeek">
+                        <span class="d-none d-sm-inline">Current </span>Week
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="LoadNextWeek">
+                        <span class="d-none d-sm-inline">Next</span> <span class="oi oi-chevron-right" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </div>
+
+            @if (currentMealPlan != null)
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h4 class="mb-0">@currentMealPlan.Name</h4>
+                        <small class="text-muted">
+                            @currentMealPlan.WeekStartDate.ToString("MMMM dd") - @currentMealPlan.WeekStartDate.AddDays(6).ToString("MMMM dd, yyyy")
+                        </small>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- Desktop Table View -->
+                        <div class="d-none d-lg-block">
+                            <div class="table-responsive">
+                                <table class="table table-bordered mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 120px;">Day</th>
+                                            <th>Breakfast</th>
+                                            <th>Lunch</th>
+                                            <th>Dinner</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (int day = 0; day < 7; day++)
+                                        {
+                                            var currentDate = currentMealPlan.WeekStartDate.AddDays(day);
+                                            var dayName = currentDate.ToString("dddd");
+                                            var dayDate = currentDate.ToString("MMM dd");
+                                            var isToday = currentDate.Date == DateTime.Today;
+                                            
+                                            <tr class="@(isToday ? "table-warning" : "")">
+                                                <td class="text-center fw-bold">
+                                                    <div>@dayName</div>
+                                                    <small class="text-muted">@dayDate</small>
+                                                </td>
+                                                @foreach (MealTime mealTime in Enum.GetValues<MealTime>())
+                                                {
+                                                    var entry = GetEntryForDateAndMealTime(currentDate, mealTime);
+                                                    <td style="min-height: 80px; vertical-align: top;">
+                                                        @RenderMealEntry(entry, false)
+                                                    </td>
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Mobile Card View -->
+                        <div class="d-lg-none">
+                            @for (int day = 0; day < 7; day++)
+                            {
+                                var currentDate = currentMealPlan.WeekStartDate.AddDays(day);
+                                var dayName = currentDate.ToString("dddd");
+                                var dayDate = currentDate.ToString("MMM dd");
+                                var isToday = currentDate.Date == DateTime.Today;
+                                
+                                <div class="border-bottom @(isToday ? "bg-warning bg-opacity-25" : "")">
+                                    <div class="p-3 @(isToday ? "fw-bold" : "")">
+                                        <h5 class="mb-0">@dayName</h5>
+                                        <small class="text-muted">@dayDate</small>
+                                    </div>
+                                    
+                                    @foreach (MealTime mealTime in Enum.GetValues<MealTime>())
+                                    {
+                                        var entry = GetEntryForDateAndMealTime(currentDate, mealTime);
+                                        <div class="px-3 pb-3">
+                                            <div class="d-flex align-items-start">
+                                                <div class="me-3" style="min-width: 80px;">
+                                                    <strong class="text-primary">@mealTime:</strong>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    @RenderMealEntry(entry, true)
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                @if (previousMealPlan != null && previousMealPlan.Id != currentMealPlan.Id)
+                {
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Previous Week: @previousMealPlan.Name</h5>
+                            <small class="text-muted">
+                                @previousMealPlan.WeekStartDate.ToString("MMMM dd") - @previousMealPlan.WeekStartDate.AddDays(6).ToString("MMMM dd, yyyy")
+                            </small>
+                        </div>
+                        <div class="card-body p-0">
+                            <!-- Desktop Previous Week Table -->
+                            <div class="d-none d-lg-block">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-sm mb-0">
+                                        <thead class="table-secondary">
+                                            <tr>
+                                                <th style="width: 120px;">Day</th>
+                                                <th>Breakfast</th>
+                                                <th>Lunch</th>
+                                                <th>Dinner</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @for (int day = 0; day < 7; day++)
+                                            {
+                                                var currentDate = previousMealPlan.WeekStartDate.AddDays(day);
+                                                var dayName = currentDate.ToString("ddd");
+                                                var dayDate = currentDate.ToString("MMM dd");
+                                                
+                                                <tr>
+                                                    <td class="text-center">
+                                                        <div><small>@dayName</small></div>
+                                                        <small class="text-muted">@dayDate</small>
+                                                    </td>
+                                                    @foreach (MealTime mealTime in Enum.GetValues<MealTime>())
+                                                    {
+                                                        var entry = GetPreviousWeekEntry(currentDate, mealTime);
+                                                        <td class="p-2" style="max-width: 150px;">
+                                                            @if (entry?.Meal != null)
+                                                            {
+                                                                <small class="text-primary d-block text-truncate" title="@entry.Meal.Name">
+                                                                    @entry.Meal.Name
+                                                                </small>
+                                                            }
+                                                            else if (!string.IsNullOrEmpty(entry?.CustomMealName))
+                                                            {
+                                                                <small class="text-secondary d-block text-truncate" title="@entry.CustomMealName">
+                                                                    @entry.CustomMealName
+                                                                </small>
+                                                            }
+                                                            else
+                                                            {
+                                                                <small class="text-muted">-</small>
+                                                            }
+                                                        </td>
+                                                    }
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Mobile Previous Week Cards -->
+                            <div class="d-lg-none">
+                                @for (int day = 0; day < 7; day++)
+                                {
+                                    var currentDate = previousMealPlan.WeekStartDate.AddDays(day);
+                                    var dayName = currentDate.ToString("ddd");
+                                    var dayDate = currentDate.ToString("MMM dd");
+                                    
+                                    <div class="border-bottom">
+                                        <div class="px-3 py-2 bg-light">
+                                            <strong>@dayName @dayDate</strong>
+                                        </div>
+                                        <div class="px-3 py-2">
+                                            @foreach (MealTime mealTime in Enum.GetValues<MealTime>())
+                                            {
+                                                var entry = GetPreviousWeekEntry(currentDate, mealTime);
+                                                <div class="d-flex justify-content-between align-items-center py-1">
+                                                    <small class="text-primary fw-bold">@mealTime:</small>
+                                                    <small class="text-end">
+                                                        @if (entry?.Meal != null)
+                                                        {
+                                                            <span class="text-primary">@entry.Meal.Name</span>
+                                                        }
+                                                        else if (!string.IsNullOrEmpty(entry?.CustomMealName))
+                                                        {
+                                                            <span class="text-secondary">@entry.CustomMealName</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">-</span>
+                                                        }
+                                                    </small>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    <h4>Loading meal plan...</h4>
+                    <p>Please wait while we load your meal planning data.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private MealPlan? currentMealPlan;
+    private MealPlan? previousMealPlan;
+    private int currentHouseholdId;
+    private DateTime currentWeekStart;
+    
+    // Editing state
+    private int? editingEntryId = null;
+    private string searchTerm = "";
+    private List<Meal> mealSuggestions = new();
+    private List<Meal> allMeals = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        await LoadCurrentWeek();
+    }
+
+    private async Task LoadData()
+    {
+        var households = await HouseholdService.GetAllHouseholdsAsync();
+        if (households.Any())
+        {
+            currentHouseholdId = households.First().Id;
+            allMeals = await MealService.GetMealsByHouseholdAsync(currentHouseholdId);
+        }
+    }
+
+    private async Task LoadCurrentWeek()
+    {
+        currentWeekStart = GetStartOfWeek(DateTime.Now);
+        await LoadWeek(currentWeekStart);
+    }
+
+    private async Task LoadPreviousWeek()
+    {
+        currentWeekStart = currentWeekStart.AddDays(-7);
+        await LoadWeek(currentWeekStart);
+    }
+
+    private async Task LoadNextWeek()
+    {
+        currentWeekStart = currentWeekStart.AddDays(7);
+        await LoadWeek(currentWeekStart);
+    }
+
+    private async Task LoadWeek(DateTime weekStart)
+    {
+        if (currentHouseholdId > 0)
+        {
+            currentMealPlan = await MealPlanService.CreateOrGetMealPlanAsync(currentHouseholdId, weekStart);
+            
+            // Load previous week for reference
+            var previousWeekStart = weekStart.AddDays(-7);
+            previousMealPlan = await MealPlanService.CreateOrGetMealPlanAsync(currentHouseholdId, previousWeekStart);
+        }
+    }
+
+    private MealPlanEntry? GetEntryForDateAndMealTime(DateTime date, MealTime mealTime)
+    {
+        return currentMealPlan?.Entries.FirstOrDefault(e => 
+            e.Date.Date == date.Date && e.MealTime == mealTime);
+    }
+
+    private MealPlanEntry? GetPreviousWeekEntry(DateTime date, MealTime mealTime)
+    {
+        return previousMealPlan?.Entries.FirstOrDefault(e => 
+            e.Date.Date == date.Date && e.MealTime == mealTime);
+    }
+
+    private void StartEdit(MealPlanEntry entry)
+    {
+        editingEntryId = entry.Id;
+        searchTerm = entry.Meal?.Name ?? entry.CustomMealName ?? "";
+        mealSuggestions.Clear();
+        
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            SearchMeals(searchTerm);
+        }
+    }
+
+    private void CancelEdit()
+    {
+        editingEntryId = null;
+        searchTerm = "";
+        mealSuggestions.Clear();
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? "";
+        SearchMeals(searchTerm);
+        await Task.CompletedTask;
+    }
+
+    private void SearchMeals(string term)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+        {
+            mealSuggestions.Clear();
+            return;
+        }
+
+        mealSuggestions = allMeals
+            .Where(m => m.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                       (m.Tags != null && m.Tags.Contains(term, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(m => m.Name)
+            .ToList();
+        
+        StateHasChanged();
+    }
+
+    private async Task SelectMeal(MealPlanEntry entry, Meal meal)
+    {
+        await MealPlanService.UpdateMealPlanEntryAsync(entry.Id, meal.Id);
+        
+        // Update the local entry
+        entry.MealId = meal.Id;
+        entry.Meal = meal;
+        entry.CustomMealName = null;
+        
+        // Mark the meal as cooked if it's for today or past
+        if (entry.Date.Date <= DateTime.Today)
+        {
+            await MealService.MarkAsCookedAsync(meal.Id);
+        }
+        
+        CancelEdit();
+        StateHasChanged();
+    }
+
+    private async Task SaveCustomMeal(MealPlanEntry entry)
+    {
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            await MealPlanService.UpdateMealPlanEntryAsync(entry.Id, null, searchTerm);
+            
+            // Update the local entry
+            entry.MealId = null;
+            entry.Meal = null;
+            entry.CustomMealName = searchTerm;
+        }
+        
+        CancelEdit();
+        StateHasChanged();
+    }
+
+    private async Task ClearEntry(MealPlanEntry entry)
+    {
+        await MealPlanService.ClearMealPlanEntryAsync(entry.Id);
+        
+        // Update the local entry
+        entry.MealId = null;
+        entry.Meal = null;
+        entry.CustomMealName = null;
+        
+        CancelEdit();
+        StateHasChanged();
+    }
+
+    private static DateTime GetStartOfWeek(DateTime date)
+    {
+        // Get Sunday as start of week
+        var diff = (7 + (date.DayOfWeek - DayOfWeek.Sunday)) % 7;
+        return date.AddDays(-1 * diff).Date;
+    }
+
+    private RenderFragment RenderMealEntry(MealPlanEntry? entry, bool isMobile) => __builder =>
+    {
+        if (entry != null)
+        {
+            if (editingEntryId == entry.Id)
+            {
+                <div class="@(isMobile ? "border rounded p-2" : "p-2")">
+                    <input type="text" class="form-control form-control-sm mb-2" 
+                           @bind="searchTerm" @oninput="OnSearchInput" 
+                           placeholder="Search meals or type custom..." />
+                    
+                    @if (mealSuggestions.Any())
+                    {
+                        <div class="list-group mb-2" style="max-height: 150px; overflow-y: auto; z-index: 1000; position: relative;">
+                            @foreach (var meal in mealSuggestions.Take(5))
+                            {
+                                <button type="button" class="list-group-item list-group-item-action py-2 px-3" 
+                                        @onclick="() => SelectMeal(entry, meal)">
+                                    <div class="fw-bold">@meal.Name</div>
+                                    @if (!string.IsNullOrEmpty(meal.Tags))
+                                    {
+                                        <small class="text-muted">@meal.Tags</small>
+                                    }
+                                </button>
+                            }
+                        </div>
+                    }
+                    
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-success btn-sm" @onclick="() => SaveCustomMeal(entry)">
+                            Save
+                        </button>
+                        <button class="btn btn-secondary btn-sm" @onclick="CancelEdit">
+                            Cancel
+                        </button>
+                        @if (entry.MealId.HasValue || !string.IsNullOrEmpty(entry.CustomMealName))
+                        {
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => ClearEntry(entry)">
+                                Clear
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="@(isMobile ? "border rounded p-3" : "p-2 h-100 d-flex flex-column justify-content-between")" 
+                     style="cursor: pointer; @(isMobile ? "" : "min-height: 60px;")" 
+                     @onclick="() => StartEdit(entry)">
+                    @if (entry.Meal != null)
+                    {
+                        <div>
+                            <div class="fw-bold text-primary">@entry.Meal.Name</div>
+                            @if (!string.IsNullOrEmpty(entry.Meal.Tags))
+                            {
+                                <small class="text-muted">@entry.Meal.Tags</small>
+                            }
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(entry.CustomMealName))
+                    {
+                        <div class="fw-bold text-secondary">@entry.CustomMealName</div>
+                    }
+                    else
+                    {
+                        <div class="text-muted @(isMobile ? "" : "text-center")">
+                            <small>@(isMobile ? "Tap to add meal" : "Click to add meal")</small>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    };
+}

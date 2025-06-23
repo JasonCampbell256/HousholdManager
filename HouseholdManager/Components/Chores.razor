@@ -1,0 +1,267 @@
+@page "/chores"
+@using HouseholdManager.Services
+@using HouseholdManager.Models
+@using HouseholdManager.Data
+@inject ChoreService ChoreService
+@inject HouseholdService HouseholdService
+@inject HouseholdContext Context
+
+<PageTitle>Chores - Household Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>Chores</h2>
+                <button class="btn btn-primary" @onclick="ShowAddForm">
+                    <span class="oi oi-plus" aria-hidden="true"></span> Add Chore
+                </button>
+            </div>
+
+            @if (showAddForm)
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Add New Chore</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="choreName" class="form-label">Name *</label>
+                                <input type="text" class="form-control" id="choreName" @bind="newChore.Name" placeholder="Enter chore name" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="choreFrequency" class="form-label">Frequency</label>
+                                <select class="form-select" id="choreFrequency" @bind="newChore.Frequency">
+                                    <option value="@ChoreFrequency.Daily">Daily</option>
+                                    <option value="@ChoreFrequency.Weekly">Weekly</option>
+                                    <option value="@ChoreFrequency.Monthly">Monthly</option>
+                                    <option value="@ChoreFrequency.AsNeeded">As Needed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="choreAssignee" class="form-label">Assign To</label>
+                                <select class="form-select" id="choreAssignee" @bind="selectedAssigneeId">
+                                    <option value="">Unassigned</option>
+                                    @foreach (var member in familyMembers)
+                                    {
+                                        <option value="@member.Id">@member.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="choreDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="choreDescription" rows="2" @bind="newChore.Description" placeholder="Additional details about the chore"></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success" @onclick="AddChore">Save Chore</button>
+                            <button class="btn btn-secondary" @onclick="CancelAdd">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="choreFilter" id="filterAll" checked="@(choreFilter == "all")" @onchange="@(() => SetFilter("all"))" />
+                        <label class="btn btn-outline-primary" for="filterAll">All (@chores.Count)</label>
+
+                        <input type="radio" class="btn-check" name="choreFilter" id="filterActive" checked="@(choreFilter == "active")" @onchange="@(() => SetFilter("active"))" />
+                        <label class="btn btn-outline-primary" for="filterActive">Active (@chores.Count(c => !c.IsCompleted))</label>
+
+                        <input type="radio" class="btn-check" name="choreFilter" id="filterCompleted" checked="@(choreFilter == "completed")" @onchange="@(() => SetFilter("completed"))" />
+                        <label class="btn btn-outline-primary" for="filterCompleted">Completed (@chores.Count(c => c.IsCompleted))</label>
+                    </div>
+                </div>
+            </div>
+
+            @if (filteredChores.Any())
+            {
+                <div class="row">
+                    @foreach (var chore in filteredChores.OrderBy(c => c.IsCompleted).ThenBy(c => c.NextDueDate))
+                    {
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card @(chore.IsCompleted ? "border-success" : (chore.NextDueDate <= DateTime.Now ? "border-warning" : ""))">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h5 class="card-title @(chore.IsCompleted ? "text-decoration-line-through text-muted" : "")">@chore.Name</h5>
+                                        @if (chore.IsCompleted)
+                                        {
+                                            <span class="badge bg-success">Completed</span>
+                                        }
+                                        else if (chore.NextDueDate <= DateTime.Now)
+                                        {
+                                            <span class="badge bg-warning">Due</span>
+                                        }
+                                    </div>
+                                    
+                                    @if (!string.IsNullOrEmpty(chore.Description))
+                                    {
+                                        <p class="card-text">@chore.Description</p>
+                                    }
+                                    
+                                    <p class="card-text">
+                                        <small class="text-muted">
+                                            Frequency: @chore.Frequency.ToString()
+                                        </small>
+                                    </p>
+                                    
+                                    @if (chore.AssignedTo != null)
+                                    {
+                                        <p class="card-text">
+                                            <small class="text-muted">
+                                                Assigned to: @chore.AssignedTo.Name
+                                            </small>
+                                        </p>
+                                    }
+                                    
+                                    @if (chore.LastCompletedDate.HasValue)
+                                    {
+                                        <p class="card-text">
+                                            <small class="text-muted">
+                                                Last completed: @chore.LastCompletedDate.Value.ToString("MMM dd, yyyy")
+                                            </small>
+                                        </p>
+                                    }
+                                    
+                                    @if (chore.NextDueDate.HasValue)
+                                    {
+                                        <p class="card-text">
+                                            <small class="text-muted">
+                                                Next due: @chore.NextDueDate.Value.ToString("MMM dd, yyyy")
+                                            </small>
+                                        </p>
+                                    }
+                                    
+                                    <div class="d-flex gap-2 mt-3">
+                                        @if (!chore.IsCompleted)
+                                        {
+                                            <button class="btn btn-sm btn-success" @onclick="() => CompleteChore(chore)">
+                                                Complete
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => UncompleteChore(chore)">
+                                                Mark Incomplete
+                                            </button>
+                                        }
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteChore(chore)">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    <h4>No chores @(choreFilter == "all" ? "" : choreFilter) found</h4>
+                    <p>@(choreFilter == "all" ? "Start by adding your household chores to keep track of what needs to be done." : $"No {choreFilter} chores at the moment.")</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Chore> chores = new();
+    private List<FamilyMember> familyMembers = new();
+    private List<Chore> filteredChores => choreFilter switch
+    {
+        "active" => chores.Where(c => !c.IsCompleted).ToList(),
+        "completed" => chores.Where(c => c.IsCompleted).ToList(),
+        _ => chores
+    };
+    
+    private bool showAddForm = false;
+    private Chore newChore = new();
+    private int currentHouseholdId;
+    private int? selectedAssigneeId;
+    private string choreFilter = "all";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var households = await HouseholdService.GetAllHouseholdsAsync();
+        if (households.Any())
+        {
+            currentHouseholdId = households.First().Id;
+            chores = await ChoreService.GetChoresByHouseholdAsync(currentHouseholdId);
+            familyMembers = await Context.FamilyMembers
+                .Where(fm => fm.HouseholdId == currentHouseholdId)
+                .ToListAsync();
+        }
+    }
+
+    private void ShowAddForm()
+    {
+        showAddForm = true;
+        newChore = new Chore();
+        selectedAssigneeId = null;
+    }
+
+    private void CancelAdd()
+    {
+        showAddForm = false;
+        newChore = new Chore();
+        selectedAssigneeId = null;
+    }
+
+    private async Task AddChore()
+    {
+        if (!string.IsNullOrWhiteSpace(newChore.Name) && currentHouseholdId > 0)
+        {
+            await ChoreService.CreateChoreAsync(
+                currentHouseholdId,
+                newChore.Name,
+                newChore.Description,
+                newChore.Frequency,
+                selectedAssigneeId
+            );
+            
+            await LoadData();
+            showAddForm = false;
+            newChore = new Chore();
+            selectedAssigneeId = null;
+        }
+    }
+
+    private async Task CompleteChore(Chore chore)
+    {
+        await ChoreService.CompleteChoreAsync(chore.Id);
+        await LoadData();
+    }
+
+    private async Task UncompleteChore(Chore chore)
+    {
+        chore.IsCompleted = false;
+        chore.LastCompletedDate = null;
+        Context.Chores.Update(chore);
+        await Context.SaveChangesAsync();
+        await LoadData();
+    }
+
+    private async Task DeleteChore(Chore chore)
+    {
+        await ChoreService.DeleteChoreAsync(chore.Id);
+        await LoadData();
+    }
+
+    private void SetFilter(string filter)
+    {
+        choreFilter = filter;
+        StateHasChanged();
+    }
+}

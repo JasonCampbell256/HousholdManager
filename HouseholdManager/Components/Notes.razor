@@ -1,0 +1,256 @@
+@page "/notes"
+@using HouseholdManager.Services
+@using HouseholdManager.Models
+@using HouseholdManager.Data
+@inject HouseholdService HouseholdService
+@inject HouseholdContext Context
+
+<PageTitle>Notes - Household Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>Shared Notes</h2>
+                <button class="btn btn-primary" @onclick="ShowAddForm">
+                    <span class="oi oi-plus" aria-hidden="true"></span> Add Note
+                </button>
+            </div>
+
+            @if (showAddForm)
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Add New Note</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="noteTitle" class="form-label">Title *</label>
+                            <input type="text" class="form-control" id="noteTitle" @bind="newNote.Title" placeholder="Enter note title" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="noteAuthor" class="form-label">Author</label>
+                            <select class="form-select" id="noteAuthor" @bind="selectedAuthorId">
+                                <option value="">Anonymous</option>
+                                @foreach (var member in familyMembers)
+                                {
+                                    <option value="@member.Id">@member.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="noteContent" class="form-label">Content *</label>
+                            <textarea class="form-control" id="noteContent" rows="5" @bind="newNote.Content" placeholder="Write your note here..."></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success" @onclick="AddNote">Save Note</button>
+                            <button class="btn btn-secondary" @onclick="CancelAdd">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (notes.Any())
+            {
+                <div class="row">
+                    @foreach (var note in notes.OrderByDescending(n => n.CreatedDate))
+                    {
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body d-flex flex-column">
+                                    <h5 class="card-title">@note.Title</h5>
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            @note.CreatedDate.ToString("MMM dd, yyyy 'at' h:mm tt")
+                                            @if (note.CreatedBy != null)
+                                            {
+                                                <span> by @note.CreatedBy.Name</span>
+                                            }
+                                        </small>
+                                    </div>
+                                    <div class="card-text flex-grow-1">
+                                        @if (note.Content.Length > 200)
+                                        {
+                                            <div>
+                                                <span id="short-@note.Id">@note.Content.Substring(0, 200)...</span>
+                                                <span id="full-@note.Id" style="display: none;">@note.Content</span>
+                                                <br />
+                                                <button class="btn btn-link btn-sm p-0" @onclick="() => ToggleContent(note.Id)">
+                                                    <span id="toggle-@note.Id">Read more</span>
+                                                </button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span>@note.Content</span>
+                                        }
+                                    </div>
+                                    <div class="d-flex gap-2 mt-3">
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EditNote(note)">
+                                            Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteNote(note)">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    <h4>No notes yet</h4>
+                    <p>Create shared notes to communicate with your household members about important information, reminders, or just thoughts to share.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (showEditModal && editingNote != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Note</h5>
+                    <button type="button" class="btn-close" @onclick="CancelEdit"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editNoteTitle" class="form-label">Title *</label>
+                        <input type="text" class="form-control" id="editNoteTitle" @bind="editingNote.Title" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="editNoteContent" class="form-label">Content *</label>
+                        <textarea class="form-control" id="editNoteContent" rows="8" @bind="editingNote.Content"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveEdit">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Note> notes = new();
+    private List<FamilyMember> familyMembers = new();
+    private bool showAddForm = false;
+    private Note newNote = new();
+    private int currentHouseholdId;
+    private int? selectedAuthorId;
+    
+    private bool showEditModal = false;
+    private Note? editingNote = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var households = await HouseholdService.GetAllHouseholdsAsync();
+        if (households.Any())
+        {
+            currentHouseholdId = households.First().Id;
+            notes = await Context.Notes
+                .Where(n => n.HouseholdId == currentHouseholdId)
+                .Include(n => n.CreatedBy)
+                .ToListAsync();
+            familyMembers = await Context.FamilyMembers
+                .Where(fm => fm.HouseholdId == currentHouseholdId)
+                .ToListAsync();
+        }
+    }
+
+    private void ShowAddForm()
+    {
+        showAddForm = true;
+        newNote = new Note();
+        selectedAuthorId = null;
+    }
+
+    private void CancelAdd()
+    {
+        showAddForm = false;
+        newNote = new Note();
+        selectedAuthorId = null;
+    }
+
+    private async Task AddNote()
+    {
+        if (!string.IsNullOrWhiteSpace(newNote.Title) && !string.IsNullOrWhiteSpace(newNote.Content) && currentHouseholdId > 0)
+        {
+            newNote.HouseholdId = currentHouseholdId;
+            newNote.CreatedById = selectedAuthorId;
+            newNote.CreatedDate = DateTime.Now;
+            
+            Context.Notes.Add(newNote);
+            await Context.SaveChangesAsync();
+            
+            await LoadData();
+            showAddForm = false;
+            newNote = new Note();
+            selectedAuthorId = null;
+        }
+    }
+
+    private void EditNote(Note note)
+    {
+        editingNote = new Note
+        {
+            Id = note.Id,
+            Title = note.Title,
+            Content = note.Content,
+            CreatedDate = note.CreatedDate,
+            CreatedById = note.CreatedById,
+            HouseholdId = note.HouseholdId
+        };
+        showEditModal = true;
+    }
+
+    private void CancelEdit()
+    {
+        showEditModal = false;
+        editingNote = null;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (editingNote != null && !string.IsNullOrWhiteSpace(editingNote.Title) && !string.IsNullOrWhiteSpace(editingNote.Content))
+        {
+            var existingNote = await Context.Notes.FindAsync(editingNote.Id);
+            if (existingNote != null)
+            {
+                existingNote.Title = editingNote.Title;
+                existingNote.Content = editingNote.Content;
+                
+                await Context.SaveChangesAsync();
+                await LoadData();
+            }
+            
+            showEditModal = false;
+            editingNote = null;
+        }
+    }
+
+    private async Task DeleteNote(Note note)
+    {
+        Context.Notes.Remove(note);
+        await Context.SaveChangesAsync();
+        await LoadData();
+    }
+
+    private void ToggleContent(int noteId)
+    {
+        // This would require JavaScript interop in a real application
+        // For now, this is a placeholder for the toggle functionality
+    }
+}

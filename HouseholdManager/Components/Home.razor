@@ -1,0 +1,166 @@
+@page "/"
+@using HouseholdManager.Services
+@using HouseholdManager.Models
+@using HouseholdManager.Data
+@inject HouseholdService HouseholdService
+@inject HouseholdContext Context
+
+<PageTitle>Home - Household Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2>Dashboard</h2>
+            @if (currentHousehold == null)
+            {
+                <div class="alert alert-info">
+                    <h4>Welcome to Household Manager!</h4>
+                    <p>Let's get you started by creating your household.</p>
+                    <div class="mb-3">
+                        <label for="householdName" class="form-label">Household Name:</label>
+                        <input type="text" class="form-control" id="householdName" @bind="newHouseholdName" placeholder="Enter household name" />
+                    </div>
+                    <button class="btn btn-primary" @onclick="CreateHousehold">Create Household</button>
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <span class="oi oi-people" aria-hidden="true"></span> Family Members
+                                </h5>
+                                <p class="card-text display-4">@currentHousehold.Members.Count</p>
+                                <a href="/family-members" class="btn btn-primary">Manage</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <span class="oi oi-list-rich" aria-hidden="true"></span> Meals
+                                </h5>
+                                <p class="card-text display-4">@currentHousehold.Meals.Count</p>
+                                <a href="/meals" class="btn btn-primary">Manage</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <span class="oi oi-task" aria-hidden="true"></span> Active Chores
+                                </h5>
+                                <p class="card-text display-4">@currentHousehold.Chores.Count(c => !c.IsCompleted)</p>
+                                <a href="/chores" class="btn btn-primary">Manage</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <span class="oi oi-wrench" aria-hidden="true"></span> Maintenance Due
+                                </h5>
+                                <p class="card-text display-4">@currentHousehold.MaintenanceTasks.Count(m => m.NextDueDate <= DateTime.Now)</p>
+                                <a href="/maintenance" class="btn btn-primary">Manage</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <span class="oi oi-cart" aria-hidden="true"></span> Grocery Lists
+                                </h5>
+                                <p class="card-text display-4">@currentHousehold.GroceryLists.Count</p>
+                                <a href="/grocery-lists" class="btn btn-primary">Manage</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <span class="oi oi-document" aria-hidden="true"></span> Notes
+                                </h5>
+                                <p class="card-text display-4">@currentHousehold.Notes.Count</p>
+                                <a href="/notes" class="btn btn-primary">Manage</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <h3>Recent Activity</h3>
+                        <div class="card">
+                            <div class="card-body">
+                                @if (recentNotes.Any())
+                                {
+                                    <h5>Recent Notes</h5>
+                                    @foreach (var note in recentNotes.Take(3))
+                                    {
+                                        <div class="border-bottom pb-2 mb-2">
+                                            <strong>@note.Title</strong>
+                                            <small class="text-muted">- @note.CreatedDate.ToString("MMM dd, yyyy")</small>
+                                            <p class="mb-1">@(note.Content.Length > 100 ? note.Content.Substring(0, 100) + "..." : note.Content)</p>
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <p class="text-muted">No recent notes. <a href="/notes">Create your first note</a>.</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private Household? currentHousehold;
+    private string newHouseholdName = "";
+    private List<Note> recentNotes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHousehold();
+    }
+
+    private async Task LoadHousehold()
+    {
+        var households = await HouseholdService.GetAllHouseholdsAsync();
+        if (households.Any())
+        {
+            currentHousehold = await HouseholdService.GetHouseholdByIdAsync(households.First().Id);
+            if (currentHousehold != null)
+            {
+                recentNotes = currentHousehold.Notes
+                    .OrderByDescending(n => n.CreatedDate)
+                    .ToList();
+            }
+        }
+    }
+
+    private async Task CreateHousehold()
+    {
+        if (!string.IsNullOrWhiteSpace(newHouseholdName))
+        {
+            await HouseholdService.CreateHouseholdAsync(newHouseholdName);
+            await LoadHousehold();
+            newHouseholdName = "";
+        }
+    }
+}

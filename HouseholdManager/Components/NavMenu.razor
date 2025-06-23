@@ -1,0 +1,99 @@
+@using Microsoft.AspNetCore.Components.Routing
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<div class="top-row navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Household Manager</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable">
+    <nav class="flex-column">
+        <div class="nav-item">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="oi oi-home" aria-hidden="true"></span> Home
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="meals">
+                <span class="oi oi-list-rich" aria-hidden="true"></span> Meals
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="meal-planner">
+                <span class="oi oi-calendar" aria-hidden="true"></span> Meal Planner
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="family-members">
+                <span class="oi oi-people" aria-hidden="true"></span> Family Members
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="chores">
+                <span class="oi oi-task" aria-hidden="true"></span> Chores
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="notes">
+                <span class="oi oi-document" aria-hidden="true"></span> Notes
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="maintenance">
+                <span class="oi oi-wrench" aria-hidden="true"></span> Maintenance
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="grocery-lists">
+                <span class="oi oi-cart" aria-hidden="true"></span> Grocery Lists
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="expenses">
+                <span class="oi oi-dollar" aria-hidden="true"></span> Expenses
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="pets">
+                <span class="oi oi-heart" aria-hidden="true"></span> Pets
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string NavMenuCssClass => collapseNavMenu ? "collapse" : "collapse show";
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += HandleLocationChanged;
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        CollapseNavMenu();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    private void CollapseNavMenu()
+    {
+        collapseNavMenu = true;
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= HandleLocationChanged;
+    }
+}

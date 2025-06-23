@@ -1,0 +1,708 @@
+@page "/meals"
+@using HouseholdManager.Services
+@using HouseholdManager.Models
+@inject MealService MealService
+@inject IngredientService IngredientService
+@inject HouseholdService HouseholdService
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>Meals</h2>
+                <button class="btn btn-primary" @onclick="ShowAddForm">
+                    <span class="oi oi-plus" aria-hidden="true"></span> Add Meal
+                </button>
+            </div>
+
+            @if (showAddForm)
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Add New Meal</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="mealName" class="form-label">Name *</label>
+                                <input type="text" class="form-control" id="mealName" @bind="newMeal.Name" placeholder="Enter meal name" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="mealTags" class="form-label">Tags</label>
+                                <input type="text" class="form-control" id="mealTags" @bind="newMeal.Tags" placeholder="e.g., Italian, Quick, Vegetarian" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="mealDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="mealDescription" rows="2" @bind="newMeal.Description" placeholder="Brief description of the meal"></textarea>
+                        </div>
+                        
+                        <!-- Add Ingredients Section -->
+                        <div class="mb-3">
+                            <label class="form-label">Ingredients</label>
+                            <div class="border p-3 rounded">
+                                <div class="row mb-2">
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" @bind="addIngredientName" @oninput="OnAddIngredientSearch" placeholder="Search or add ingredient" />
+                                        @if (addIngredientSuggestions.Any())
+                                        {
+                                            <div class="list-group mt-1" style="position: absolute; z-index: 1000; max-height: 200px; overflow-y: auto;">
+                                                @foreach (var suggestion in addIngredientSuggestions.Take(5))
+                                                {
+                                                    <button type="button" class="list-group-item list-group-item-action" @onclick="() => SelectAddIngredient(suggestion)">
+                                                        @suggestion.Name
+                                                        @if (!string.IsNullOrEmpty(suggestion.Category))
+                                                        {
+                                                            <small class="text-muted"> - @suggestion.Category</small>
+                                                        }
+                                                    </button>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" class="form-control" @bind="addIngredientQuantity" placeholder="Qty" step="0.1" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="text" class="form-control" @bind="addIngredientUnit" placeholder="Unit" />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" @bind="addIngredientNotes" placeholder="Notes (optional)" />
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-success" @onclick="AddIngredientToAddList">+</button>
+                                    </div>
+                                </div>
+                                
+                                @if (selectedIngredients.Any())
+                                {
+                                    <div class="mt-3">
+                                        <h6>Selected Ingredients:</h6>
+                                        @foreach (var ingredient in selectedIngredients)
+                                        {
+                                            @if (editingAddIngredientId == ingredient.IngredientId)
+                                            {
+                                                <!-- Inline editing for add form -->
+                                                <div class="d-flex align-items-center mb-2 p-2 bg-warning bg-opacity-25 rounded border">
+                                                    <span class="me-2" style="min-width: 100px;"><strong>@ingredient.IngredientName</strong></span>
+                                                    <input type="number" class="form-control form-control-sm me-2" style="width: 80px;" @bind="editingAddQuantity" placeholder="Qty" step="0.1" />
+                                                    <input type="text" class="form-control form-control-sm me-2" style="width: 80px;" @bind="editingAddUnit" placeholder="Unit" />
+                                                    <input type="text" class="form-control form-control-sm me-2" @bind="editingAddNotes" placeholder="Notes" />
+                                                    <button type="button" class="btn btn-sm btn-success me-1" @onclick="() => SaveAddIngredientEdit(ingredient)">✓</button>
+                                                    <button type="button" class="btn btn-sm btn-secondary me-1" @onclick="CancelAddIngredientEdit">✕</button>
+                                                    <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveIngredientFromAddList(ingredient)">🗑</button>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <!-- Display mode for add form -->
+                                                <div class="d-flex align-items-center mb-2 p-2 bg-light rounded">
+                                                    <span class="flex-grow-1" style="cursor: pointer;" @onclick="() => StartEditAddIngredient(ingredient)">
+                                                        @ingredient.IngredientName
+                                                        @if (ingredient.Quantity.HasValue)
+                                                        {
+                                                            <strong> @ingredient.Quantity @ingredient.Unit</strong>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(ingredient.Notes))
+                                                        {
+                                                            <em> - @ingredient.Notes</em>
+                                                        }
+                                                        <small class="text-muted ms-2">(click to edit)</small>
+                                                    </span>
+                                                    <button type="button" class="btn btn-sm btn-danger ms-2" @onclick="() => RemoveIngredientFromAddList(ingredient)">×</button>
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success" @onclick="AddMeal">Save Meal</button>
+                            <button class="btn btn-secondary" @onclick="CancelAdd">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (showEditForm && editingMeal != null)
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Edit Meal: @editingMeal.Name</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="editMealName" class="form-label">Name *</label>
+                                <input type="text" class="form-control" id="editMealName" @bind="editingMeal.Name" placeholder="Enter meal name" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="editMealTags" class="form-label">Tags</label>
+                                <input type="text" class="form-control" id="editMealTags" @bind="editingMeal.Tags" placeholder="e.g., Italian, Quick, Vegetarian" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editMealDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="editMealDescription" rows="2" @bind="editingMeal.Description" placeholder="Brief description of the meal"></textarea>
+                        </div>
+                        
+                        <!-- Edit Ingredients Section -->
+                        <div class="mb-3">
+                            <label class="form-label">Ingredients</label>
+                            <div class="border p-3 rounded">
+                                <div class="row mb-2">
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" @bind="editIngredientName" @oninput="OnEditIngredientSearch" placeholder="Search or add ingredient" />
+                                        @if (editIngredientSuggestions.Any())
+                                        {
+                                            <div class="list-group mt-1" style="position: absolute; z-index: 1000; max-height: 200px; overflow-y: auto;">
+                                                @foreach (var suggestion in editIngredientSuggestions.Take(5))
+                                                {
+                                                    <button type="button" class="list-group-item list-group-item-action" @onclick="() => SelectEditIngredient(suggestion)">
+                                                        @suggestion.Name
+                                                        @if (!string.IsNullOrEmpty(suggestion.Category))
+                                                        {
+                                                            <small class="text-muted"> - @suggestion.Category</small>
+                                                        }
+                                                    </button>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" class="form-control" @bind="editIngredientQuantity" placeholder="Qty" step="0.1" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="text" class="form-control" @bind="editIngredientUnit" placeholder="Unit" />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" @bind="editIngredientNotes" placeholder="Notes (optional)" />
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-success" @onclick="AddIngredientToEditList">+</button>
+                                    </div>
+                                </div>
+                                
+                                @if (editingIngredients.Any())
+                                {
+                                    <div class="mt-3">
+                                        <h6>Selected Ingredients:</h6>
+                                        @foreach (var ingredient in editingIngredients)
+                                        {
+                                            @if (editingEditIngredientId == ingredient.IngredientId)
+                                            {
+                                                <!-- Inline editing for edit form -->
+                                                <div class="d-flex align-items-center mb-2 p-2 bg-warning bg-opacity-25 rounded border">
+                                                    <span class="me-2" style="min-width: 100px;"><strong>@ingredient.IngredientName</strong></span>
+                                                    <input type="number" class="form-control form-control-sm me-2" style="width: 80px;" @bind="editingEditQuantity" placeholder="Qty" step="0.1" />
+                                                    <input type="text" class="form-control form-control-sm me-2" style="width: 80px;" @bind="editingEditUnit" placeholder="Unit" />
+                                                    <input type="text" class="form-control form-control-sm me-2" @bind="editingEditNotes" placeholder="Notes" />
+                                                    <button type="button" class="btn btn-sm btn-success me-1" @onclick="() => SaveEditIngredientEdit(ingredient)">✓</button>
+                                                    <button type="button" class="btn btn-sm btn-secondary me-1" @onclick="CancelEditIngredientEdit">✕</button>
+                                                    <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveIngredientFromEditList(ingredient)">🗑</button>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <!-- Display mode for edit form -->
+                                                <div class="d-flex align-items-center mb-2 p-2 bg-light rounded">
+                                                    <span class="flex-grow-1" style="cursor: pointer;" @onclick="() => StartEditEditIngredient(ingredient)">
+                                                        @ingredient.IngredientName
+                                                        @if (ingredient.Quantity.HasValue)
+                                                        {
+                                                            <strong> @ingredient.Quantity @ingredient.Unit</strong>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(ingredient.Notes))
+                                                        {
+                                                            <em> - @ingredient.Notes</em>
+                                                        }
+                                                        <small class="text-muted ms-2">(click to edit)</small>
+                                                    </span>
+                                                    <button type="button" class="btn btn-sm btn-danger ms-2" @onclick="() => RemoveIngredientFromEditList(ingredient)">×</button>
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success" @onclick="SaveEdit">Save Changes</button>
+                            <button class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (meals.Any())
+            {
+                <div class="row">
+                    @foreach (var meal in meals)
+                    {
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">@meal.Name</h5>
+                                    @if (!string.IsNullOrEmpty(meal.Description))
+                                    {
+                                        <p class="card-text">@meal.Description</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(meal.Tags))
+                                    {
+                                        <p class="card-text">
+                                            <small class="text-muted">
+                                                Tags: @meal.Tags
+                                            </small>
+                                        </p>
+                                    }
+                                    @if (meal.LastCookedDate.HasValue)
+                                    {
+                                        <p class="card-text">
+                                            <small class="text-muted">
+                                                Last cooked: @meal.LastCookedDate.Value.ToString("MMM dd, yyyy")
+                                            </small>
+                                        </p>
+                                    }
+                                    @if (meal.MealIngredients.Any())
+                                    {
+                                        <div class="mb-3">
+                                            <h6 class="text-primary">Ingredients (@meal.MealIngredients.Count)</h6>
+                                            <div class="small">
+                                                @foreach (var mealIngredient in meal.MealIngredients)
+                                                {
+                                                    <div class="mb-1">
+                                                        @mealIngredient.Ingredient.Name
+                                                        @if (mealIngredient.Quantity.HasValue)
+                                                        {
+                                                            <strong> - @mealIngredient.Quantity @mealIngredient.Unit</strong>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(mealIngredient.Notes))
+                                                        {
+                                                            <em> (@mealIngredient.Notes)</em>
+                                                        }
+                                                        @if (mealIngredient.IsOptional)
+                                                        {
+                                                            <span class="text-muted"> (optional)</span>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                    <div class="d-flex gap-2 mt-3">
+                                        <button class="btn btn-sm btn-success" @onclick="() => MarkAsCooked(meal)">
+                                            Cooked Today
+                                        </button>
+                                        <button class="btn btn-sm btn-primary" @onclick="() => StartEdit(meal)">
+                                            <span class="oi oi-pencil" aria-hidden="true"></span> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteMeal(meal)">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    <h4>No meals yet</h4>
+                    <p>Start building your meal collection by adding your favorite recipes.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Meal> meals = new();
+    private List<Ingredient> allIngredients = new();
+    private bool showAddForm = false;
+    private bool showEditForm = false;
+    private Meal newMeal = new();
+    private Meal? editingMeal = null;
+    private int currentHouseholdId;
+
+    // Add form ingredient fields
+    private string addIngredientName = "";
+    private decimal? addIngredientQuantity;
+    private string addIngredientUnit = "";
+    private string addIngredientNotes = "";
+    private List<Ingredient> addIngredientSuggestions = new();
+    private List<SelectedIngredient> selectedIngredients = new();
+
+    // Edit form ingredient fields
+    private string editIngredientName = "";
+    private decimal? editIngredientQuantity;
+    private string editIngredientUnit = "";
+    private string editIngredientNotes = "";
+    private List<Ingredient> editIngredientSuggestions = new();
+    private List<SelectedIngredient> editingIngredients = new();
+
+    // Inline editing state for add form
+    private int? editingAddIngredientId = null;
+    private decimal? editingAddQuantity;
+    private string editingAddUnit = "";
+    private string editingAddNotes = "";
+
+    // Inline editing state for edit form
+    private int? editingEditIngredientId = null;
+    private decimal? editingEditQuantity;
+    private string editingEditUnit = "";
+    private string editingEditNotes = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var households = await HouseholdService.GetAllHouseholdsAsync();
+        if (households.Any())
+        {
+            currentHouseholdId = households.First().Id;
+            meals = await MealService.GetMealsByHouseholdAsync(currentHouseholdId);
+            allIngredients = await IngredientService.GetIngredientsByHouseholdAsync(currentHouseholdId);
+        }
+    }
+
+    // Add form methods
+    private async Task OnAddIngredientSearch(ChangeEventArgs e)
+    {
+        var searchTerm = e.Value?.ToString() ?? "";
+        addIngredientName = searchTerm;
+        
+        if (searchTerm.Length >= 2)
+        {
+            addIngredientSuggestions = allIngredients
+                .Where(i => i.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+        else
+        {
+            addIngredientSuggestions.Clear();
+        }
+        StateHasChanged();
+    }
+
+    private void SelectAddIngredient(Ingredient ingredient)
+    {
+        addIngredientName = ingredient.Name;
+        addIngredientUnit = ingredient.DefaultUnit ?? "";
+        addIngredientSuggestions.Clear();
+        StateHasChanged();
+    }
+
+    private async Task AddIngredientToAddList()
+    {
+        if (string.IsNullOrWhiteSpace(addIngredientName)) return;
+
+        var ingredient = await IngredientService.GetIngredientByNameAsync(currentHouseholdId, addIngredientName);
+        if (ingredient == null)
+        {
+            ingredient = await IngredientService.CreateIngredientAsync(currentHouseholdId, addIngredientName, defaultUnit: addIngredientUnit);
+            allIngredients.Add(ingredient);
+        }
+
+        if (selectedIngredients.Any(i => i.IngredientId == ingredient.Id))
+        {
+            ClearAddIngredientForm();
+            return;
+        }
+
+        selectedIngredients.Add(new SelectedIngredient
+        {
+            IngredientId = ingredient.Id,
+            IngredientName = ingredient.Name,
+            Quantity = addIngredientQuantity,
+            Unit = addIngredientUnit,
+            Notes = addIngredientNotes
+        });
+
+        ClearAddIngredientForm();
+    }
+
+    private void RemoveIngredientFromAddList(SelectedIngredient ingredient)
+    {
+        selectedIngredients.Remove(ingredient);
+    }
+
+    private void ClearAddIngredientForm()
+    {
+        addIngredientName = "";
+        addIngredientQuantity = null;
+        addIngredientUnit = "";
+        addIngredientNotes = "";
+        addIngredientSuggestions.Clear();
+    }
+
+    // Edit form methods
+    private async Task OnEditIngredientSearch(ChangeEventArgs e)
+    {
+        var searchTerm = e.Value?.ToString() ?? "";
+        editIngredientName = searchTerm;
+        
+        if (searchTerm.Length >= 2)
+        {
+            editIngredientSuggestions = allIngredients
+                .Where(i => i.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+        else
+        {
+            editIngredientSuggestions.Clear();
+        }
+        StateHasChanged();
+    }
+
+    private void SelectEditIngredient(Ingredient ingredient)
+    {
+        editIngredientName = ingredient.Name;
+        editIngredientUnit = ingredient.DefaultUnit ?? "";
+        editIngredientSuggestions.Clear();
+        StateHasChanged();
+    }
+
+    private async Task AddIngredientToEditList()
+    {
+        if (string.IsNullOrWhiteSpace(editIngredientName)) return;
+
+        var ingredient = await IngredientService.GetIngredientByNameAsync(currentHouseholdId, editIngredientName);
+        if (ingredient == null)
+        {
+            ingredient = await IngredientService.CreateIngredientAsync(currentHouseholdId, editIngredientName, defaultUnit: editIngredientUnit);
+            allIngredients.Add(ingredient);
+        }
+
+        if (editingIngredients.Any(i => i.IngredientId == ingredient.Id))
+        {
+            ClearEditIngredientForm();
+            return;
+        }
+
+        editingIngredients.Add(new SelectedIngredient
+        {
+            IngredientId = ingredient.Id,
+            IngredientName = ingredient.Name,
+            Quantity = editIngredientQuantity,
+            Unit = editIngredientUnit,
+            Notes = editIngredientNotes
+        });
+
+        ClearEditIngredientForm();
+    }
+
+    private void RemoveIngredientFromEditList(SelectedIngredient ingredient)
+    {
+        editingIngredients.Remove(ingredient);
+    }
+
+    private void ClearEditIngredientForm()
+    {
+        editIngredientName = "";
+        editIngredientQuantity = null;
+        editIngredientUnit = "";
+        editIngredientNotes = "";
+        editIngredientSuggestions.Clear();
+    }
+
+    // Inline editing methods for add form
+    private void StartEditAddIngredient(SelectedIngredient ingredient)
+    {
+        editingAddIngredientId = ingredient.IngredientId;
+        editingAddQuantity = ingredient.Quantity;
+        editingAddUnit = ingredient.Unit ?? "";
+        editingAddNotes = ingredient.Notes ?? "";
+    }
+
+    private void SaveAddIngredientEdit(SelectedIngredient ingredient)
+    {
+        ingredient.Quantity = editingAddQuantity;
+        ingredient.Unit = editingAddUnit;
+        ingredient.Notes = editingAddNotes;
+        CancelAddIngredientEdit();
+    }
+
+    private void CancelAddIngredientEdit()
+    {
+        editingAddIngredientId = null;
+        editingAddQuantity = null;
+        editingAddUnit = "";
+        editingAddNotes = "";
+    }
+
+    // Inline editing methods for edit form
+    private void StartEditEditIngredient(SelectedIngredient ingredient)
+    {
+        editingEditIngredientId = ingredient.IngredientId;
+        editingEditQuantity = ingredient.Quantity;
+        editingEditUnit = ingredient.Unit ?? "";
+        editingEditNotes = ingredient.Notes ?? "";
+    }
+
+    private void SaveEditIngredientEdit(SelectedIngredient ingredient)
+    {
+        ingredient.Quantity = editingEditQuantity;
+        ingredient.Unit = editingEditUnit;
+        ingredient.Notes = editingEditNotes;
+        CancelEditIngredientEdit();
+    }
+
+    private void CancelEditIngredientEdit()
+    {
+        editingEditIngredientId = null;
+        editingEditQuantity = null;
+        editingEditUnit = "";
+        editingEditNotes = "";
+    }
+
+    // Main form methods
+    private void ShowAddForm()
+    {
+        showAddForm = true;
+        showEditForm = false;
+        newMeal = new Meal();
+        selectedIngredients.Clear();
+        editingMeal = null;
+        ClearAddIngredientForm();
+    }
+
+    private void CancelAdd()
+    {
+        showAddForm = false;
+        newMeal = new Meal();
+        selectedIngredients.Clear();
+        ClearAddIngredientForm();
+        CancelAddIngredientEdit(); // Clear any inline editing state
+    }
+
+    private async Task StartEdit(Meal meal)
+    {
+        var fullMeal = await MealService.GetMealWithIngredientsAsync(meal.Id);
+        if (fullMeal == null) return;
+
+        editingMeal = new Meal
+        {
+            Id = fullMeal.Id,
+            Name = fullMeal.Name,
+            Description = fullMeal.Description,
+            Tags = fullMeal.Tags,
+            HouseholdId = fullMeal.HouseholdId,
+            LastCookedDate = fullMeal.LastCookedDate
+        };
+
+        editingIngredients = fullMeal.MealIngredients.Select(mi => new SelectedIngredient
+        {
+            IngredientId = mi.IngredientId,
+            IngredientName = mi.Ingredient.Name,
+            Quantity = mi.Quantity,
+            Unit = mi.Unit,
+            Notes = mi.Notes
+        }).ToList();
+
+        showEditForm = true;
+        showAddForm = false;
+        ClearEditIngredientForm();
+    }
+
+    private void CancelEdit()
+    {
+        showEditForm = false;
+        editingMeal = null;
+        editingIngredients.Clear();
+        ClearEditIngredientForm();
+        CancelEditIngredientEdit(); // Clear any inline editing state
+    }
+
+    private async Task SaveEdit()
+    {
+        if (editingMeal != null && !string.IsNullOrWhiteSpace(editingMeal.Name))
+        {
+            var mealIngredients = editingIngredients.Select(ei => new MealIngredient
+            {
+                IngredientId = ei.IngredientId,
+                Quantity = ei.Quantity,
+                Unit = ei.Unit,
+                Notes = ei.Notes
+            }).ToList();
+
+            await MealService.UpdateMealAsync(
+                editingMeal.Id,
+                editingMeal.Name,
+                editingMeal.Description,
+                editingMeal.Tags,
+                mealIngredients
+            );
+            
+            await LoadData();
+            showEditForm = false;
+            editingMeal = null;
+            editingIngredients.Clear();
+            ClearEditIngredientForm();
+        }
+    }
+
+    private async Task AddMeal()
+    {
+        if (!string.IsNullOrWhiteSpace(newMeal.Name) && currentHouseholdId > 0)
+        {
+            var mealIngredients = selectedIngredients.Select(si => new MealIngredient
+            {
+                IngredientId = si.IngredientId,
+                Quantity = si.Quantity,
+                Unit = si.Unit,
+                Notes = si.Notes
+            }).ToList();
+
+            await MealService.CreateMealAsync(
+                currentHouseholdId,
+                newMeal.Name,
+                newMeal.Description,
+                newMeal.Tags,
+                mealIngredients
+            );
+            
+            await LoadData();
+            showAddForm = false;
+            newMeal = new Meal();
+            selectedIngredients.Clear();
+            ClearAddIngredientForm();
+        }
+    }
+
+    private async Task MarkAsCooked(Meal meal)
+    {
+        await MealService.MarkAsCookedAsync(meal.Id);
+        await LoadData();
+    }
+
+    private async Task DeleteMeal(Meal meal)
+    {
+        if (confirm($"Are you sure you want to delete '{meal.Name}'?"))
+        {
+            await MealService.DeleteMealAsync(meal.Id);
+            await LoadData();
+        }
+    }
+
+    private bool confirm(string message)
+    {
+        return true;
+    }
+
+    private class SelectedIngredient
+    {
+        public int IngredientId { get; set; }
+        public string IngredientName { get; set; } = "";
+        public decimal? Quantity { get; set; }
+        public string? Unit { get; set; }
+        public string? Notes { get; set; }
+    }
+}
